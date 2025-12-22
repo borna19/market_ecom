@@ -11,20 +11,26 @@ $cart_empty = empty($_SESSION['cart']);
     <meta charset="UTF-8">
     <title>My Cart</title>
 
-    <!-- Bootstrap CSS -->
+    <!-- Bootstrap -->
     <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.2/dist/css/bootstrap.min.css" rel="stylesheet">
 
     <style>
+        /* =========================
+           GLOBAL
+        ========================== */
         body{
-            background:#111;
-            color:#fff;
+            background:#f4f6f8; /* same family as shop */
+            color:#333;
             margin:0;
         }
 
-        /* CONTENT AFTER SIDEBAR */
+        /* =========================
+           MAIN CONTENT
+        ========================== */
         .main-content{
-            margin-left:240px; /* sidebar width */
-            padding:20px;
+            margin-left:240px;
+            padding:25px;
+            min-height:100vh;
         }
 
         @media(max-width:768px){
@@ -33,10 +39,101 @@ $cart_empty = empty($_SESSION['cart']);
             }
         }
 
-        .card{background:#1e1e1e;border:none}
-        .table{color:#fff}
-        .table th,.table td{vertical-align:middle}
-        img{width:60px;height:60px;object-fit:cover;border-radius:6px}
+        /* =========================
+           CARD
+        ========================== */
+        .card{
+            background:#ffffff;
+            border:none;
+            border-radius:14px;
+            box-shadow:0 4px 12px rgba(0,0,0,0.08);
+        }
+
+        /* =========================
+           TABLE
+        ========================== */
+        .table{
+            color:#333;
+            margin-bottom:0;
+        }
+
+        .table thead{
+            background:#e8f5e9;
+        }
+
+        .table thead th{
+            color:#1b5e20;
+            font-weight:600;
+            border-bottom:2px solid #c8e6c9;
+        }
+
+        .table td, .table th{
+            vertical-align:middle;
+        }
+
+        .table-bordered > :not(caption) > *{
+            border-color:#e0e0e0;
+        }
+
+        /* =========================
+           PRODUCT IMAGE
+        ========================== */
+        img{
+            width:60px;
+            height:60px;
+            object-fit:cover;
+            border-radius:8px;
+            margin-right:8px;
+            border:1px solid #ddd;
+        }
+
+        /* =========================
+           TOTAL
+        ========================== */
+        .total-amount{
+            color:#1b5e20;
+            font-weight:700;
+        }
+
+        /* =========================
+           BUTTONS
+        ========================== */
+        .btn-back{
+            border:1px solid #2e7d32;
+            color:#2e7d32;
+        }
+
+        .btn-back:hover{
+            background:#2e7d32;
+            color:#fff;
+        }
+
+        .btn-remove{
+            background:#e53935;
+            border:none;
+        }
+
+        .btn-remove:hover{
+            background:#c62828;
+        }
+
+        .btn-success{
+            background:#2e7d32;
+            border:none;
+        }
+
+        .btn-success:hover{
+            background:#1b5e20;
+        }
+
+        .btn-secondary{
+            background:#9e9e9e;
+            border:none;
+        }
+
+        .btn-secondary:hover{
+            background:#757575;
+        }
     </style>
 </head>
 
@@ -45,13 +142,12 @@ $cart_empty = empty($_SESSION['cart']);
 <!-- SIDEBAR -->
 <?php include __DIR__ . '/../includes/sidebar.php'; ?>
 
-<!-- PAGE CONTENT START -->
+<!-- MAIN CONTENT -->
 <div class="main-content">
 
-    <h2 class="mb-4">My Cart</h2>
-
-    <div class="mb-3">
-        <a href="/market_ecom/pages/dashboard.php" class="btn btn-outline-light btn-sm">
+    <div class="d-flex justify-content-between align-items-center mb-4">
+        <h2>🛒 My Cart</h2>
+        <a href="/market_ecom/pages/dashboard.php" class="btn btn-back btn-sm">
             ← Back to Dashboard
         </a>
     </div>
@@ -61,13 +157,13 @@ $cart_empty = empty($_SESSION['cart']);
         <div class="alert alert-warning">
             Your cart is empty.
         </div>
-        <a href="shop.php" class="btn btn-primary">Back to Shop</a>
+        <a href="shop.php" class="btn btn-success">Go to Shop</a>
 
     <?php } else { ?>
 
         <div class="card p-3">
             <div class="table-responsive">
-                <table class="table table-dark table-bordered">
+                <table class="table table-bordered">
                     <thead>
                         <tr>
                             <th>Product</th>
@@ -98,7 +194,8 @@ $cart_empty = empty($_SESSION['cart']);
                             <td><?php echo $qty; ?></td>
                             <td>₹<?php echo $subtotal; ?></td>
                             <td>
-                                <a href="remove_cart.php?id=<?php echo $id; ?>" class="btn btn-danger btn-sm">
+                                <a href="remove_cart.php?id=<?php echo $id; ?>" 
+                                   class="btn btn-remove btn-sm">
                                     ✕
                                 </a>
                             </td>
@@ -109,20 +206,24 @@ $cart_empty = empty($_SESSION['cart']);
                 </table>
             </div>
 
-            <h4 class="text-end mt-3">
+            <h4 class="text-end mt-3 total-amount">
                 Total: ₹<?php echo $total; ?>
             </h4>
 
             <div class="d-flex justify-content-end gap-2 mt-3">
-                <a href="shop.php" class="btn btn-secondary">Continue Shopping</a>
-                <a href="checkout.php" class="btn btn-success">Place Order</a>
+                <a href="shop.php" class="btn btn-secondary">
+                    Continue Shopping
+                </a>
+                <a href="checkout.php" class="btn btn-success">
+                    Place Order
+                </a>
             </div>
         </div>
 
     <?php } ?>
 
 </div>
-<!-- PAGE CONTENT END -->
+<!-- END MAIN CONTENT -->
 
 </body>
 </html>
