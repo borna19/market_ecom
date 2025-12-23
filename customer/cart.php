@@ -15,18 +15,14 @@ $cart_empty = empty($_SESSION['cart']);
     <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.2/dist/css/bootstrap.min.css" rel="stylesheet">
 
     <style>
-        /* =========================
-           GLOBAL
-        ========================== */
+      
         body{
-            background:#f4f6f8; /* same family as shop */
+            background:#f4f6f8; 
             color:#333;
             margin:0;
         }
 
-        /* =========================
-           MAIN CONTENT
-        ========================== */
+     
         .main-content{
             margin-left:240px;
             padding:25px;
@@ -39,9 +35,7 @@ $cart_empty = empty($_SESSION['cart']);
             }
         }
 
-        /* =========================
-           CARD
-        ========================== */
+       
         .card{
             background:#ffffff;
             border:none;
@@ -49,9 +43,6 @@ $cart_empty = empty($_SESSION['cart']);
             box-shadow:0 4px 12px rgba(0,0,0,0.08);
         }
 
-        /* =========================
-           TABLE
-        ========================== */
         .table{
             color:#333;
             margin-bottom:0;
@@ -75,9 +66,7 @@ $cart_empty = empty($_SESSION['cart']);
             border-color:#e0e0e0;
         }
 
-        /* =========================
-           PRODUCT IMAGE
-        ========================== */
+
         img{
             width:60px;
             height:60px;
@@ -139,10 +128,9 @@ $cart_empty = empty($_SESSION['cart']);
 
 <body>
 
-<!-- SIDEBAR -->
+
 <?php include __DIR__ . '/../includes/sidebar.php'; ?>
 
-<!-- MAIN CONTENT -->
 <div class="main-content">
 
     <div class="d-flex justify-content-between align-items-center mb-4">
@@ -223,7 +211,7 @@ $cart_empty = empty($_SESSION['cart']);
     <?php } ?>
 
 </div>
-<!-- END MAIN CONTENT -->
+
 
 </body>
 </html>

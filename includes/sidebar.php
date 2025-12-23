@@ -97,9 +97,9 @@ $name = $_SESSION['name'] ?? 'Guest';
 
     <?php if ($role === 'admin'): ?>
         <a href="/market_ecom/pages/dashboard.php">Dashboard</a>
-        <a href="/market_ecom/admin/users.php">Manage Users</a>
-        <a href="/market_ecom/admin/products.php">Manage Products</a>
-        <a href="/market_ecom/admin/orders.php">All Orders</a>
+        <a href="/market_ecom/admin/manage_users.php">Manage Users</a>
+        <a href="/market_ecom/admin/manage_products.php">Manage Products</a>
+        <a href="/market_ecom/admin/manage_orders.php">All Orders</a>
 
     <?php elseif ($role === 'vendor' || $role === 'farmer'): ?>
         <a href="/market_ecom/pages/dashboard.php">Dashboard</a>

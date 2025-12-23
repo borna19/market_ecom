@@ -32,7 +32,7 @@ foreach ($_SESSION['cart'] as $pid => $qty) {
     $p = mysqli_fetch_assoc($q);
 
     $total += $p['price'] * $qty;
-    $vendor_id = $p['vendor_id']; // single vendor assumption
+    $vendor_id = $p['vendor_id']; 
 }
 
 // PLACE ORDER
@@ -62,9 +62,8 @@ foreach ($_SESSION['cart'] as $pid => $qty) {
     );
 }
 
-// clear cart
 unset($_SESSION['cart']);
 
-// redirect
+
 header("Location: orders.php");
 exit;
