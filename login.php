@@ -26,7 +26,7 @@ session_start();
     }
     ?>
 
-<form method="POST" action="includes/auth/login_action.php">
+<form method="POST" action="/MARKET_ECOM/includes/auth/login_action.php">
         <input type="email" name="email" placeholder="Email Address" required>
         <input type="password" name="password" placeholder="Password" required>
 

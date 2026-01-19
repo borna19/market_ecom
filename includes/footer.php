@@ -1,3 +1,9 @@
+<style>
+    .footer{
+        padding: 0;
+        margin: 0;
+    }
+</style>
 <footer class="bg-success text-light pt-5">
     <div class="container">
         <div class="row">

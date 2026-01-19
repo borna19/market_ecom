@@ -6,7 +6,6 @@ if (session_status() === PHP_SESSION_NONE) {
 
 <!DOCTYPE html>
 <html lang="en">
-
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
@@ -24,113 +23,142 @@ if (session_status() === PHP_SESSION_NONE) {
         }
 
         .content-wrapper {
-            margin-top: 80px;
+            margin-top: 90px;
             padding: 20px;
         }
 
         .navbar-brand {
             font-weight: bold;
-            color: #198754 !important;
+            color: #fff !important;
+            font-size: 20px;
+        }
+
+        /* Custom nav buttons */
+        .nav-btn {
+            text-decoration: none;
+            padding: 8px 18px;
+            border-radius: 30px;
+            font-size: 14px;
+            font-weight: 500;
+            transition: 0.3s ease;
+            display: inline-flex;
+            align-items: center;
+            gap: 6px;
+            box-shadow: 0 2px 6px rgba(0,0,0,0.15);
+        }
+
+        .nav-home {
+            background: rgba(255,255,255,0.2);
+            color: #fff;
+        }
+        .nav-home:hover {
+            background: #fff;
+            color: #198754;
+        }
+
+        .nav-login {
+            background: linear-gradient(135deg, #0d6efd, #2563eb);
+            color: #fff;
+        }
+        .nav-login:hover {
+            transform: translateY(-1px);
+            background: #084298;
+        }
+
+        .nav-register {
+            background: linear-gradient(135deg, #facc15, #f59e0b);
+            color: #000;
+        }
+        .nav-register:hover {
+            transform: translateY(-1px);
+            background: #fbbf24;
+        }
+
+        .nav-user {
+            background: #20c997;
+            color: #fff;
+        }
+
+        .nav-user:hover {
+            background: #198754;
         }
     </style>
 </head>
 
 <body>
 
-    <!-- TOP FIXED NAVBAR -->
-    <nav class="navbar navbar-expand-lg navbar-dark bg-success fixed-top shadow">
-        <div class="container-fluid">
+<!-- NAVBAR -->
+<nav class="navbar navbar-expand-lg navbar-dark bg-success fixed-top shadow">
+    <div class="container-fluid">
 
-            <!-- Logo -->
-            <a class="navbar-brand" href="/market_ecom/index.php">
-                🌱 Farmers Market
-            </a>
+        <!-- Logo -->
+        <a class="navbar-brand" href="/market_ecom/index.php">
+            🌱 Farmers Market
+        </a>
 
-            <!-- Mobile Toggle -->
-            <button class="navbar-toggler" type="button" data-bs-toggle="collapse" data-bs-target="#mainNavbar">
-                <span class="navbar-toggler-icon"></span>
-            </button>
+        <!-- Mobile toggle -->
+        <button class="navbar-toggler" type="button" data-bs-toggle="collapse" data-bs-target="#mainNavbar">
+            <span class="navbar-toggler-icon"></span>
+        </button>
 
-            <!-- Navbar Content -->
-            <div class="collapse navbar-collapse" id="mainNavbar">
-                <ul class="navbar-nav me-auto mb-2 mb-lg-0">
+        <!-- Navbar -->
+        <div class="collapse navbar-collapse" id="mainNavbar">
+
+            <!-- Left 
+            <ul class="navbar-nav me-auto">
+                <li class="nav-item">
+                    <a class="nav-link text-white" href="/market_ecom/index.php">Home</a>
+                </li>
+            </ul>-->
+
+            <!-- Right -->
+            <ul class="navbar-nav ms-auto align-items-center gap-2">
+
+                <?php if (!isset($_SESSION['user_id'])): ?>
 
                     <li class="nav-item">
-                        <a class="nav-link" href="/market_ecom/index.php">Home</a>
+                        <a href="/market_ecom/index.php" class="nav-btn nav-home">
+                            <i class="fa fa-house"></i> Home
+                        </a>
                     </li>
 
                     <li class="nav-item">
-                        <a class="nav-link" href="/market_ecom/customer/shop.php">Shop</a>
+                        <a href="#" class="nav-btn nav-login"
+                           data-bs-toggle="modal"
+                           data-bs-target="#loginModal">
+                            <i class="fa fa-right-to-bracket"></i> Login
+                        </a>
                     </li>
 
-                    <?php if (isset($_SESSION['role'])): ?>
+                    <li class="nav-item">
+                        <a href="#" class="nav-btn nav-register"
+                           data-bs-toggle="modal"
+                           data-bs-target="#registerModal">
+                            <i class="fa fa-user-plus"></i> Register
+                        </a>
+                    </li>
 
-                        <?php if ($_SESSION['role'] === 'admin'): ?>
-                            <li class="nav-item">
-                                <a class="nav-link" href="/market_ecom/admin/dashboard.php">Admin Dashboard</a>
+                <?php else: ?>
+
+                    <li class="nav-item dropdown">
+                        <a class="nav-btn nav-user dropdown-toggle" href="#" data-bs-toggle="dropdown">
+                            <i class="fa fa-user"></i> <?= htmlspecialchars($_SESSION['name']) ?>
+                        </a>
+                        <ul class="dropdown-menu dropdown-menu-end">
+                            <li>
+                                <a class="dropdown-item text-danger" href="/market_ecom/logout.php">
+                                    <i class="fa fa-power-off"></i> Logout
+                                </a>
                             </li>
-                        <?php endif; ?>
+                        </ul>
+                    </li>
 
-                        <?php if ($_SESSION['role'] === 'vendor'): ?>
-                            <li class="nav-item">
-                                <a class="nav-link" href="/market_ecom/vendor/dashboard.php">Vendor Dashboard</a>
-                            </li>
-                        <?php endif; ?>
+                <?php endif; ?>
 
-                        <?php if ($_SESSION['role'] === 'customer'): ?>
-                            <li class="nav-item">
-                                <a class="nav-link" href="/market_ecom/customer/dashboard.php">My Account</a>
-                            </li>
-                        <?php endif; ?>
-
-                    <?php endif; ?>
-
-                </ul>
-
-                <!-- RIGHT SIDE -->
-                <ul class="navbar-nav ms-auto">
-
-                    <?php if (!isset($_SESSION['user_id'])): ?>
-                        <!-- Before Login -->
-                        <li class="nav-item">
-                            <a class="nav-link" href="#" data-bs-toggle="modal" data-bs-target="#registerModal">
-                                Register
-                            </a>
-                        </li>
-
-
-                        <li class="nav-item">
-                            <a class="nav-link" href="#" data-bs-toggle="modal" data-bs-target="#loginModal">
-                                Login
-                            </a>
-
-                            <ul class="dropdown-menu dropdown-menu-end">
-                                <li><a class="dropdown-item" href="/market_ecom/login.php?role=customer">Customer Login</a></li>
-                                <li><a class="dropdown-item" href="/market_ecom/login.php?role=vendor">Vendor Login</a></li>
-                                <li><a class="dropdown-item" href="/market_ecom/login.php?role=admin">Admin Login</a></li>
-                            </ul>
-                        </li>
-
-                    <?php else: ?>
-                        <!-- After Login -->
-                        <li class="nav-item dropdown">
-                            <a class="nav-link dropdown-toggle" href="#" role="button" data-bs-toggle="dropdown">
-                                <i class="fa fa-user"></i> <?= htmlspecialchars($_SESSION['name'] ?? 'User') ?>
-                            </a>
-                            <ul class="dropdown-menu dropdown-menu-end">
-                                <li>
-                                    <a class="dropdown-item text-danger" href="/market_ecom/logout.php">
-                                        <i class="fa fa-power-off"></i> Logout
-                                    </a>
-                                </li>
-                            </ul>
-                        </li>
-                    <?php endif; ?>
-
-                </ul>
-            </div>
+            </ul>
         </div>
-    </nav>
+    </div>
+</nav>
 
-    <!-- PAGE CONTENT START -->
-    <div class="content-wrapper">
+<!-- Page content start -->
+<div class="content-wrapper">
