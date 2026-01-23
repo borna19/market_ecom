@@ -1,0 +1,335 @@
+<?php
+session_start();
+include __DIR__ . '/../includes/e_db.php';
+
+// Only admin allowed
+$role = strtolower($_SESSION['role'] ?? '');
+if (!isset($_SESSION['user_id']) || $role !== 'admin') {
+    $_SESSION['message'] = "Admin access only.";
+    header("Location: /market_ecom/index.php");
+    exit;
+}
+
+// Handle Delete
+if (isset($_GET['delete'])) {
+    $delete_id = (int)$_GET['delete'];
+    // Fetch product to get image name
+    $pstmt = mysqli_prepare($conn, "SELECT image FROM products WHERE id = ? LIMIT 1");
+    if ($pstmt) {
+        mysqli_stmt_bind_param($pstmt, 'i', $delete_id);
+        mysqli_stmt_execute($pstmt);
+        $res = mysqli_stmt_get_result($pstmt);
+        if ($res && mysqli_num_rows($res) === 1) {
+            $prow = mysqli_fetch_assoc($res);
+            mysqli_stmt_close($pstmt);
+
+            // Delete product from DB
+            $dstmt = mysqli_prepare($conn, "DELETE FROM products WHERE id = ?");
+            if ($dstmt) {
+                mysqli_stmt_bind_param($dstmt, 'i', $delete_id);
+                if (mysqli_stmt_execute($dstmt)) {
+                    // Remove image file if exists
+                    if (!empty($prow['image'])) {
+                        $file = __DIR__ . '/../uploads/' . $prow['image'];
+                        if (file_exists($file)) unlink($file);
+                    }
+                    $_SESSION['success'] = "Product deleted successfully.";
+                } else {
+                    $_SESSION['error'] = "Failed to delete product.";
+                }
+                mysqli_stmt_close($dstmt);
+            }
+        } else {
+            $_SESSION['error'] = "Product not found.";
+        }
+    }
+    header("Location: products.php");
+    exit;
+}
+
+// Fetch Products with LEFT JOIN
+$products = mysqli_query($conn, "
+    SELECT p.*, u.name as vendor_name
+    FROM products p
+    LEFT JOIN users u ON p.vendor_id = u.id
+    ORDER BY p.id DESC
+");
+?>
+
+<!DOCTYPE html>
+<html>
+<head>
+    <title>Manage Products - Admin</title>
+    <link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.0/css/all.min.css" rel="stylesheet">
+    <style>
+        body {
+            margin: 0;
+            font-family: 'Segoe UI', sans-serif;
+            background: #f8fafc;
+        }
+
+        .layout {
+            display: flex;
+            height: 100vh;
+            overflow: hidden;
+        }
+
+        /* Sidebar */
+        .sidebar {
+            width: 260px;
+            background: #1e293b;
+            color: #fff;
+            display: flex;
+            flex-direction: column;
+            box-shadow: 2px 0 10px rgba(0,0,0,0.1);
+            height: 100%;
+        }
+
+        .sidebar-header {
+            padding: 25px 20px;
+            background: #0f172a;
+            text-align: center;
+            border-bottom: 1px solid #334155;
+            flex-shrink: 0;
+        }
+
+        .sidebar-header h3 {
+            margin: 0;
+            font-size: 20px;
+            font-weight: 700;
+            color: #fff;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            gap: 10px;
+        }
+
+        .sidebar-menu {
+            list-style: none;
+            padding: 0;
+            margin: 0;
+            flex: 1;
+            display: flex;
+            flex-direction: column;
+            overflow-y: auto;
+        }
+
+        .sidebar-menu li {
+            border-bottom: 1px solid #334155;
+            flex-shrink: 0;
+        }
+
+        .sidebar-menu li:last-child {
+            border-bottom: none;
+        }
+
+        .sidebar-menu a {
+            display: flex;
+            align-items: center;
+            padding: 15px 25px;
+            color: #cbd5e1;
+            text-decoration: none;
+            font-size: 15px;
+            transition: all 0.3s;
+            gap: 12px;
+        }
+
+        .sidebar-menu a:hover, .sidebar-menu a.active {
+            background: #3b82f6;
+            color: #fff;
+            padding-left: 30px;
+        }
+
+        .sidebar-menu a i {
+            width: 20px;
+            text-align: center;
+        }
+
+        .logout-link {
+            background: #ef4444;
+            color: white !important;
+            justify-content: center;
+        }
+        .logout-link:hover {
+            background: #dc2626 !important;
+            padding-left: 25px !important;
+        }
+
+        /* Main */
+        .main {
+            flex: 1;
+            padding: 30px;
+            overflow-y: auto;
+            height: 100%;
+        }
+
+        .topbar {
+            background: #fff;
+            padding: 20px 30px;
+            border-radius: 16px;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            box-shadow: 0 4px 20px rgba(0,0,0,0.03);
+            margin-bottom: 30px;
+            flex-shrink: 0;
+        }
+
+        .topbar h2 { margin: 0; font-size: 22px; color: #1e293b; }
+        .topbar span { color: #64748b; font-weight: 500; }
+
+        .content-card {
+            background: #fff;
+            padding: 30px;
+            border-radius: 16px;
+            box-shadow: 0 4px 20px rgba(0,0,0,0.03);
+        }
+
+        .alert {
+            padding: 15px;
+            margin-bottom: 20px;
+            border-radius: 8px;
+            display: flex;
+            align-items: center;
+            gap: 10px;
+        }
+        .alert-success { background-color: #d1e7dd; color: #0f5132; border: 1px solid #badbcc; }
+        .alert-danger { background-color: #f8d7da; color: #842029; border: 1px solid #f5c2c7; }
+
+        table {
+            width: 100%;
+            border-collapse: collapse;
+            margin-top: 10px;
+        }
+
+        th, td {
+            padding: 15px;
+            border-bottom: 1px solid #e2e8f0;
+            text-align: left;
+            color: #334155;
+            vertical-align: middle;
+        }
+
+        th {
+            background: #f8fafc;
+            font-weight: 600;
+            color: #475569;
+        }
+
+        .img-thumbnail {
+            width: 60px;
+            height: 60px;
+            object-fit: cover;
+            border-radius: 8px;
+            border: 1px solid #e2e8f0;
+        }
+
+        .btn {
+            padding: 8px 12px;
+            border-radius: 6px;
+            text-decoration: none;
+            font-size: 14px;
+            display: inline-block;
+            margin-right: 5px;
+            border: none;
+            cursor: pointer;
+            font-weight: 500;
+            transition: background 0.2s;
+        }
+        .btn-primary { background: #3b82f6; color: #fff; }
+        .btn-primary:hover { background: #2563eb; }
+        .btn-danger { background: #ef4444; color: #fff; }
+        .btn-danger:hover { background: #dc2626; }
+
+    </style>
+</head>
+<body>
+
+<div class="layout">
+
+    <!-- Sidebar -->
+    <?php include __DIR__ . '/../includes/admin_sidebar.php'; ?>
+
+    <!-- Main -->
+    <div class="main">
+
+        <div class="topbar">
+            <h2><i class="fa-solid fa-box"></i> Manage Products</h2>
+            <span><?= date("l, d M Y") ?></span>
+        </div>
+
+        <div class="content-card">
+
+            <?php if (isset($_SESSION['success'])): ?>
+                <div class="alert alert-success">
+                    <i class="fa-solid fa-check-circle"></i> <?= $_SESSION['success']; unset($_SESSION['success']); ?>
+                </div>
+            <?php endif; ?>
+
+            <?php if (isset($_SESSION['error'])): ?>
+                <div class="alert alert-danger">
+                    <i class="fa-solid fa-triangle-exclamation"></i> <?= $_SESSION['error']; unset($_SESSION['error']); ?>
+                </div>
+            <?php endif; ?>
+
+            <table>
+                <thead>
+                    <tr>
+                        <th>ID</th>
+                        <th>Image</th>
+                        <th>Name</th>
+                        <th>Vendor</th>
+                        <th>Price</th>
+                        <th>Stock</th>
+                        <th>Action</th>
+                    </tr>
+                </thead>
+                <tbody>
+                <?php if ($products && mysqli_num_rows($products) > 0): ?>
+                    <?php while($p = mysqli_fetch_assoc($products)): ?>
+                        <tr>
+                            <td>#<?= $p['id'] ?></td>
+                            <td>
+                                <?php if(!empty($p['image'])): ?>
+                                    <img src="/market_ecom/uploads/<?= htmlspecialchars($p['image']) ?>" alt="" class="img-thumbnail">
+                                <?php else: ?>
+                                    <span style="color:#94a3b8; font-size:12px;">No Image</span>
+                                <?php endif; ?>
+                            </td>
+                            <td><?= htmlspecialchars($p['name']) ?></td>
+                            <td>
+                                <?php if ($p['vendor_name']): ?>
+                                    <?= htmlspecialchars($p['vendor_name']) ?>
+                                <?php else: ?>
+                                    <span style="color:#ef4444; font-style:italic;">Deleted Vendor</span>
+                                <?php endif; ?>
+                            </td>
+                            <td>₹<?= htmlspecialchars($p['price']) ?></td>
+                            <td><?= htmlspecialchars($p['stock']) ?></td>
+                            <td>
+                                <a href="edit_product.php?id=<?= $p['id'] ?>" class="btn btn-primary">
+                                    <i class="fa-solid fa-pen"></i> Edit
+                                </a>
+                                <a href="products.php?delete=<?= $p['id'] ?>" class="btn btn-danger" onclick="return confirm('Are you sure you want to delete this product?')">
+                                    <i class="fa-solid fa-trash"></i> Delete
+                                </a>
+                            </td>
+                        </tr>
+                    <?php endwhile; ?>
+                <?php else: ?>
+                    <tr>
+                        <td colspan="7" style="text-align:center; padding: 40px;">
+                            <i class="fa-solid fa-box-open fa-3x" style="margin-bottom:15px; color:#cbd5e1;"></i>
+                            <p style="color:#64748b;">No products found.</p>
+                        </td>
+                    </tr>
+                <?php endif; ?>
+                </tbody>
+            </table>
+        </div>
+
+    </div>
+</div>
+
+</body>
+</html>

@@ -1,34 +1,23 @@
 <?php
 session_start();
 include __DIR__ . '/../includes/e_db.php';
-include __DIR__ . '/../includes/vendor_helpers.php';
 
-// REQUIRE LOGIN
-if (!isset($_SESSION['user_id'])) {
-    header("Location: /market_ecom/pages/login.php");
+// Only vendor allowed
+$role = strtolower($_SESSION['role'] ?? '');
+if (!isset($_SESSION['user_id']) || $role !== 'vendor') {
+    $_SESSION['message'] = "Please login as vendor.";
+    header("Location: /market_ecom/index.php");
     exit;
 }
 
-$user_id = $_SESSION['user_id'];
-$vendor_id = getVendorIdForUser($conn, $user_id);
-if (!$vendor_id) {
-    $_SESSION['error'] = 'Vendor mapping not found. Please register as a vendor or contact admin.';
-    header('Location: /market_ecom/');
-    exit;
-}
+$vendor_id = (int)$_SESSION['user_id'];
 
-// INCLUDE SIDEBAR
-include __DIR__ . '/../includes/sidebar.php';
-
-// FETCH PRODUCTS
-$products = mysqli_query($conn, "SELECT * FROM products WHERE vendor_id = '$vendor_id' ORDER BY id DESC");
-
-// Edit mode: load product to edit if requested
+// Edit mode
 $editing = false;
 $edit_product = null;
 if (isset($_GET['edit'])) {
     $edit_id = (int) $_GET['edit'];
-    $pstmt = mysqli_prepare($conn, "SELECT id, name, price, category, stock, image, description FROM products WHERE id = ? AND vendor_id = ? LIMIT 1");
+    $pstmt = mysqli_prepare($conn, "SELECT * FROM products WHERE id = ? AND vendor_id = ? LIMIT 1");
     if ($pstmt) {
         mysqli_stmt_bind_param($pstmt, 'ii', $edit_id, $vendor_id);
         mysqli_stmt_execute($pstmt);
@@ -42,149 +31,249 @@ if (isset($_GET['edit'])) {
 }
 ?>
 
-<!-- PAGE STYLE -->
-<style>
-.content-area {
-    margin-left: 260px;
-    padding: 30px;
-    background: #f5f7fa;
-    min-height: 100vh;
-}
+<!DOCTYPE html>
+<html>
+<head>
+    <title><?= $editing ? 'Edit' : 'Add' ?> Product - Vendor</title>
+    <link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.0/css/all.min.css" rel="stylesheet">
+    <style>
+        body {
+            margin: 0;
+            font-family: 'Segoe UI', sans-serif;
+            background: #f8fafc;
+        }
 
-.card-box {
-    background: #fff;
-    padding: 25px;
-    border-radius: 12px;
-    box-shadow: 0 2px 10px rgba(0,0,0,0.08);
-}
+        .layout {
+            display: flex;
+            height: 100vh;
+            overflow: hidden;
+        }
 
-.products-grid {
-    display: grid;
-    grid-template-columns: repeat(auto-fill, minmax(220px, 1fr));
-    gap: 20px;
-}
+        /* Sidebar */
+        .sidebar {
+            width: 260px;
+            background: #1e293b;
+            color: #fff;
+            display: flex;
+            flex-direction: column;
+            box-shadow: 2px 0 10px rgba(0,0,0,0.1);
+            height: 100%;
+        }
 
-.product-card {
-    background: #fff;
-    border-radius: 12px;
-    padding: 12px;
-    box-shadow: 0 2px 8px rgba(0,0,0,0.1);
-    text-align: center;
-}
+        .sidebar-header {
+            padding: 25px 20px;
+            background: #0f172a;
+            text-align: center;
+            border-bottom: 1px solid #334155;
+            flex-shrink: 0;
+        }
 
-.product-card img {
-    width: 100%;
-    height: 180px;
-    border-radius: 10px;
-    object-fit: cover;
-}
+        .sidebar-header h3 {
+            margin: 0;
+            font-size: 20px;
+            font-weight: 700;
+            color: #fff;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            gap: 10px;
+        }
 
-/* Button */
-.btn {
-    background: #1976d2;
-    color: white;
-    padding: 10px 18px;
-    border: none;
-    border-radius: 6px;
-    cursor: pointer;
-}
-.btn:hover { background: #0d47a1; }
+        .sidebar-menu {
+            list-style: none;
+            padding: 0;
+            margin: 0;
+            flex: 1;
+            display: flex;
+            flex-direction: column;
+            overflow-y: auto;
+        }
 
-/* MODAL */
-.modal-bg {
-    position: fixed;
-    top:0; left:0;
-    width:100%; height:100%;
-    background: rgba(0,0,0,0.5);
-    display:none;
-    align-items:center;
-    justify-content:center;
-}
+        .sidebar-menu li {
+            border-bottom: 1px solid #334155;
+            flex-shrink: 0;
+        }
 
-.modal-box {
-    background:white;
-    width:420px;
-    padding:25px;
-    border-radius:12px;
-}
+        .sidebar-menu li:last-child {
+            border-bottom: none;
+        }
 
-input, textarea {
-    width:100%;
-    padding:10px;
-    margin-bottom:12px;
-    border-radius:6px;
-    border:1px solid #ccc;
-}
-</style>
+        .sidebar-menu a {
+            display: flex;
+            align-items: center;
+            padding: 15px 25px;
+            color: #cbd5e1;
+            text-decoration: none;
+            font-size: 15px;
+            transition: all 0.3s;
+            gap: 12px;
+        }
 
-<div class="content-area">
-    <div class="card-box">
-        <h2>My Products</h2>
+        .sidebar-menu a:hover, .sidebar-menu a.active {
+            background: #3b82f6;
+            color: #fff;
+            padding-left: 30px;
+        }
 
-        <button class="btn" onclick="openModal()">➕ Add Product</button>
+        .sidebar-menu a i {
+            width: 20px;
+            text-align: center;
+        }
 
-        <div class="products-grid" style="margin-top:20px;">
-            <?php while($p = mysqli_fetch_assoc($products)) { ?>
-                <div class="product-card">
-                    <img src="/market_ecom/uploads/<?php echo $p['image']; ?>" alt="">
-                    <h4><?php echo $p['name']; ?></h4>
-                    <p><b>₹<?php echo $p['price']; ?></b></p>
-                    <p>Stock: <?php echo $p['stock']; ?></p>
-                    <p>Category: <?php echo $p['category']; ?></p>
-                    <p style="margin-top:8px;">
-                        <a href="/market_ecom/vendor/add_product.php?edit=<?php echo $p['id']; ?>" class="btn" style="padding:6px 12px;font-size:12px;">Edit</a>
-                        <a href="/market_ecom/vendor/manage_products.php?delete=<?php echo $p['id']; ?>" class="btn" style="background:#f44336;padding:6px 12px;font-size:12px;">Delete</a>
-                    </p>
-                </div>
-            <?php } ?>
+        .logout-link {
+            background: #ef4444;
+            color: white !important;
+            justify-content: center;
+        }
+        .logout-link:hover {
+            background: #dc2626 !important;
+            padding-left: 25px !important;
+        }
+
+        /* Main */
+        .main {
+            flex: 1;
+            padding: 30px;
+            overflow-y: auto;
+            height: 100%;
+        }
+
+        .topbar {
+            background: #fff;
+            padding: 20px 30px;
+            border-radius: 16px;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            box-shadow: 0 4px 20px rgba(0,0,0,0.03);
+            margin-bottom: 30px;
+            flex-shrink: 0;
+        }
+
+        .topbar h2 { margin: 0; font-size: 22px; color: #1e293b; }
+        .topbar span { color: #64748b; font-weight: 500; }
+
+        .form-card {
+            background: #fff;
+            padding: 40px;
+            border-radius: 16px;
+            box-shadow: 0 4px 20px rgba(0,0,0,0.03);
+            max-width: 700px;
+            margin: 0 auto;
+        }
+
+        .form-group {
+            margin-bottom: 20px;
+        }
+
+        label {
+            display: block;
+            margin-bottom: 8px;
+            font-weight: 600;
+            color: #475569;
+        }
+
+        input[type="text"], input[type="number"], input[type="file"], textarea, select {
+            width: 100%;
+            padding: 12px;
+            border: 1px solid #cbd5e1;
+            border-radius: 8px;
+            box-sizing: border-box;
+            transition: border-color 0.2s;
+            font-size: 15px;
+        }
+
+        input:focus, textarea:focus, select:focus {
+            outline: none;
+            border-color: #3b82f6;
+            box-shadow: 0 0 0 2px rgba(59, 130, 246, 0.2);
+        }
+
+        .btn {
+            background: #3b82f6;
+            color: #fff;
+            padding: 12px 25px;
+            border: none;
+            border-radius: 8px;
+            cursor: pointer;
+            font-size: 16px;
+            font-weight: 600;
+            width: 100%;
+            transition: background 0.2s;
+        }
+
+        .btn:hover {
+            background: #2563eb;
+        }
+    </style>
+</head>
+<body>
+
+<div class="layout">
+
+    <!-- Sidebar -->
+    <?php include __DIR__ . '/../includes/vendor_sidebar.php'; ?>
+
+    <!-- Main -->
+    <div class="main">
+
+        <div class="topbar">
+            <h2><i class="fa-solid fa-pen-to-square"></i> <?= $editing ? 'Edit Product' : 'Add New Product' ?></h2>
+            <span><?= date("l, d M Y") ?></span>
         </div>
+
+        <div class="form-card">
+            <form action="add_product_action.php" method="POST" enctype="multipart/form-data">
+
+                <div class="form-group">
+                    <label>Product Name</label>
+                    <input type="text" name="name" required value="<?= $editing ? htmlspecialchars($edit_product['name']) : '' ?>">
+                </div>
+
+                <div class="form-group">
+                    <label>Price (₹)</label>
+                    <input type="number" step="0.01" name="price" required value="<?= $editing ? htmlspecialchars($edit_product['price']) : '' ?>">
+                </div>
+
+                <div class="form-group">
+                    <label>Category</label>
+                    <input type="text" name="category" required value="<?= $editing ? htmlspecialchars($edit_product['category']) : '' ?>">
+                </div>
+
+                <div class="form-group">
+                    <label>Stock Quantity</label>
+                    <input type="number" name="stock" required value="<?= $editing ? htmlspecialchars($edit_product['stock']) : '1' ?>">
+                </div>
+
+                <div class="form-group">
+                    <label>Product Image</label>
+                    <input type="file" name="image" <?= $editing ? '' : 'required' ?>>
+                    <?php if ($editing && !empty($edit_product['image'])): ?>
+                        <div style="margin-top:10px;">
+                            <small>Current:</small><br>
+                            <img src="/market_ecom/uploads/<?= htmlspecialchars($edit_product['image']) ?>" style="height:80px;border-radius:8px;border:1px solid #e2e8f0;padding:4px;">
+                        </div>
+                    <?php endif; ?>
+                </div>
+
+                <div class="form-group">
+                    <label>Description</label>
+                    <textarea name="description" rows="5"><?= $editing ? htmlspecialchars($edit_product['description']) : '' ?></textarea>
+                </div>
+
+                <?php if ($editing): ?>
+                    <input type="hidden" name="product_id" value="<?= $edit_product['id'] ?>">
+                    <input type="hidden" name="action" value="update">
+                <?php endif; ?>
+
+                <button type="submit" class="btn">
+                    <i class="fa-solid fa-save"></i> <?= $editing ? 'Update Product' : 'Save Product' ?>
+                </button>
+            </form>
+        </div>
+
     </div>
 </div>
 
-<!-- MODAL -->
-<div class="modal-bg" id="modal">
-    <div class="modal-box">
-        <h3>Add Product</h3>
-
-        <form action="add_product_action.php" method="POST" enctype="multipart/form-data">
-
-            <label>Name</label>
-            <input type="text" name="name" required value="<?php echo $editing ? htmlspecialchars($edit_product['name']) : ''; ?>">
-
-            <label>Price</label>
-            <input type="number" step="0.01" name="price" required value="<?php echo $editing ? htmlspecialchars($edit_product['price']) : ''; ?>">
-
-            <label>Category</label>
-            <input type="text" name="category" value="<?php echo $editing ? htmlspecialchars($edit_product['category']) : ''; ?>">
-
-            <label>Stock</label>
-            <input type="number" name="stock" value="<?php echo $editing ? htmlspecialchars($edit_product['stock']) : '0'; ?>">
-
-            <label>Image</label>
-            <input type="file" name="image" <?php echo $editing ? '' : 'required'; ?> >
-            <?php if ($editing && !empty($edit_product['image'])): ?>
-                <div style="margin-bottom:10px;"><small>Current image:</small><br><img src="/market_ecom/uploads/<?= htmlspecialchars($edit_product['image']) ?>" style="max-width:120px;margin-top:6px;border-radius:6px"></div>
-            <?php endif; ?>
-
-            <label>Description</label>
-            <textarea name="description"><?php echo $editing ? htmlspecialchars($edit_product['description']) : ''; ?></textarea>
-
-            <?php if ($editing): ?>
-                <input type="hidden" name="product_id" value="<?php echo $edit_product['id']; ?>">
-                <input type="hidden" name="action" value="update">
-            <?php endif; ?>
-
-            <button class="btn" type="submit"><?php echo $editing ? 'Update Product' : 'Add Product'; ?></button>
-            <button class="btn" type="button" onclick="closeModal()" style="background:gray;">Cancel</button>
-        </form>
-    </div>
-</div>
-
-<script>
-function openModal(){ document.getElementById("modal").style.display="flex"; }
-function closeModal(){ document.getElementById("modal").style.display="none"; }
-</script>
-
-<?php if ($editing): ?>
-<script>openModal();</script>
-<?php endif; ?>
+</body>
+</html>

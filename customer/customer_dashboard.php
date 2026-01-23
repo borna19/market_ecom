@@ -11,12 +11,7 @@ if (!isset($_SESSION['user_id']) || $role !== 'customer') {
 }
 $user_id = (int)$_SESSION['user_id'];
 
-// Fetch categories
-$cats = [];
-$rc = mysqli_query($conn, "SELECT DISTINCT category FROM products ORDER BY category ASC");
-if ($rc) {
-    while ($r = mysqli_fetch_assoc($rc)) $cats[] = $r['category'];
-}
+// Fetch categories (moved to sidebar include)
 
 // Selected category
 $category = $_GET['category'] ?? '';
@@ -31,124 +26,204 @@ if ($category) {
     $res = mysqli_query($conn, "SELECT * FROM products ORDER BY id DESC");
 }
 
-// Cart count
-$cart_count = 0;
-$q = mysqli_query($conn, "SELECT SUM(quantity) as cnt FROM cart_items WHERE user_id = $user_id");
-if ($q && $r = mysqli_fetch_assoc($q)) {
-    $cart_count = $r['cnt'] ?? 0;
-}
+// Cart count (moved to sidebar include)
 ?>
 
 <!DOCTYPE html>
 <html>
 <head>
     <title>Customer Dashboard</title>
+    <link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.0/css/all.min.css" rel="stylesheet">
     <style>
         body {
             margin: 0;
             font-family: 'Segoe UI', sans-serif;
-            background: #f4f6f9;
+            background: #f8fafc;
         }
 
         .layout {
             display: flex;
-            min-height: 100vh;
+            height: 100vh;
+            overflow: hidden;
         }
 
         /* Sidebar */
         .sidebar {
-            width: 230px;
-            background: #111827;
+            width: 260px;
+            background: #1e293b;
             color: #fff;
-            padding: 20px;
+            display: flex;
+            flex-direction: column;
+            box-shadow: 2px 0 10px rgba(0,0,0,0.1);
+            height: 100%;
         }
 
-        .sidebar h2 {
+        .sidebar-header {
+            padding: 25px 20px;
+            background: #0f172a;
             text-align: center;
-            margin-bottom: 30px;
+            border-bottom: 1px solid #334155;
+            flex-shrink: 0;
         }
 
-        .sidebar a {
-            display: block;
+        .sidebar-header h3 {
+            margin: 0;
+            font-size: 20px;
+            font-weight: 700;
+            color: #fff;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            gap: 10px;
+        }
+
+        .sidebar-menu {
+            list-style: none;
+            padding: 0;
+            margin: 0;
+            flex: 1;
+            display: flex;
+            flex-direction: column;
+            overflow-y: auto;
+        }
+
+        .sidebar-menu li {
+            border-bottom: 1px solid #334155;
+            flex-shrink: 0;
+        }
+
+        .sidebar-menu li:last-child {
+            border-bottom: none;
+        }
+
+        .sidebar-menu a {
+            display: flex;
+            align-items: center;
+            padding: 15px 25px;
             color: #cbd5e1;
             text-decoration: none;
-            padding: 10px;
-            border-radius: 6px;
-            margin-bottom: 8px;
+            font-size: 15px;
+            transition: all 0.3s;
+            gap: 12px;
         }
 
-        .sidebar a:hover, .sidebar a.active {
-            background: #2563eb;
+        .sidebar-menu a:hover, .sidebar-menu a.active {
+            background: #3b82f6;
             color: #fff;
+            padding-left: 30px;
+        }
+
+        .sidebar-menu a i {
+            width: 20px;
+            text-align: center;
+        }
+
+        .logout-link {
+            background: #ef4444;
+            color: white !important;
+            justify-content: center;
+        }
+        .logout-link:hover {
+            background: #dc2626 !important;
+            padding-left: 25px !important;
         }
 
         /* Main */
         .main {
             flex: 1;
-            padding: 25px;
+            padding: 30px;
+            overflow-y: auto;
+            height: 100%;
         }
 
         .topbar {
             background: #fff;
-            padding: 15px 20px;
-            border-radius: 10px;
+            padding: 20px 30px;
+            border-radius: 16px;
             display: flex;
             justify-content: space-between;
             align-items: center;
-            box-shadow: 0 2px 8px rgba(0,0,0,0.05);
+            box-shadow: 0 4px 20px rgba(0,0,0,0.03);
+            margin-bottom: 30px;
+            flex-shrink: 0;
         }
+
+        .topbar h2 { margin: 0; font-size: 22px; color: #1e293b; }
+        .topbar span { color: #64748b; font-weight: 500; }
 
         .stats {
             display: grid;
-            grid-template-columns: repeat(auto-fit,minmax(200px,1fr));
-            gap: 15px;
-            margin: 20px 0;
+            grid-template-columns: repeat(auto-fit,minmax(240px,1fr));
+            gap: 25px;
+            margin-bottom: 30px;
         }
 
-        .stat-card {
+        .stat {
             background: #fff;
-            padding: 20px;
-            border-radius: 12px;
-            box-shadow: 0 2px 10px rgba(0,0,0,0.05);
+            padding: 25px;
+            border-radius: 16px;
+            box-shadow: 0 4px 20px rgba(0,0,0,0.03);
+            transition: transform 0.2s;
         }
+        .stat:hover { transform: translateY(-5px); }
 
-        .products {
+        .stat h3 { margin: 0 0 10px; color: #64748b; font-size: 16px; font-weight: 600; }
+        .stat p { margin: 0; font-size: 32px; font-weight: 700; color: #1e293b; }
+
+        .products-grid {
             display: grid;
-            grid-template-columns: repeat(auto-fill, minmax(220px, 1fr));
-            gap: 20px;
+            grid-template-columns: repeat(auto-fill, minmax(250px, 1fr));
+            gap: 25px;
         }
 
-        .product {
+        .product-card {
             background: #fff;
-            border-radius: 14px;
-            padding: 15px;
-            box-shadow: 0 2px 10px rgba(0,0,0,0.05);
+            border-radius: 16px;
+            padding: 20px;
+            box-shadow: 0 4px 20px rgba(0,0,0,0.03);
             transition: transform .2s;
+            text-align: center;
         }
 
-        .product:hover {
+        .product-card:hover {
             transform: translateY(-5px);
         }
 
-        .product img {
+        .product-card img {
             width: 100%;
-            height: 150px;
+            height: 180px;
             object-fit: cover;
-            border-radius: 10px;
+            border-radius: 12px;
+            margin-bottom: 15px;
+        }
+
+        .product-card h4 {
+            font-size: 1.1rem;
+            margin-bottom: 8px;
+            color: #1e293b;
+        }
+
+        .product-card p {
+            font-size: 1.2rem;
+            font-weight: 600;
+            color: #0f172a;
+            margin-bottom: 15px;
         }
 
         .btn {
-            background: #2563eb;
+            background: #3b82f6;
             color: #fff;
             border: none;
-            padding: 8px 12px;
-            border-radius: 6px;
+            padding: 10px 20px;
+            border-radius: 8px;
             cursor: pointer;
             font-size: 14px;
+            font-weight: 500;
+            transition: background 0.2s;
         }
 
         .btn:hover {
-            background: #1d4ed8;
+            background: #2563eb;
         }
     </style>
 </head>
@@ -157,21 +232,7 @@ if ($q && $r = mysqli_fetch_assoc($q)) {
 <div class="layout">
 
     <!-- Sidebar -->
-    <div class="sidebar">
-        <h2>MarketEcom</h2>
-        <a href="customer_dashboard.php" class="active">🏠 Dashboard</a>
-        <a href="cart.php">🛒 Cart (<?= $cart_count ?>)</a>
-        <a href="orders.php">📦 My Orders</a>
-        <a href="../logout.php">🚪 Logout</a>
-
-        <hr style="border-color:#334155">
-
-        <h4>Categories</h4>
-        <a href="customer_dashboard.php">All</a>
-        <?php foreach($cats as $c): ?>
-            <a href="?category=<?= urlencode($c) ?>"><?= htmlspecialchars($c) ?></a>
-        <?php endforeach; ?>
-    </div>
+    <?php include __DIR__ . '/../includes/customer_sidebar.php'; ?>
 
     <!-- Main -->
     <div class="main">
@@ -183,26 +244,26 @@ if ($q && $r = mysqli_fetch_assoc($q)) {
 
         <!-- Stats -->
         <div class="stats">
-            <div class="stat-card">
-                <h3>🛒 Cart Items</h3>
-                <p style="font-size:28px"><?= $cart_count ?></p>
+            <div class="stat">
+                <h3><i class="fa-solid fa-cart-shopping"></i> Cart Items</h3>
+                <p><?= $cart_count ?></p>
             </div>
-            <div class="stat-card">
-                <h3>📦 Orders</h3>
-                <p style="font-size:28px">Coming soon</p>
+            <div class="stat">
+                <h3><i class="fa-solid fa-box-open"></i> Orders</h3>
+                <p>Coming soon</p>
             </div>
-            <div class="stat-card">
-                <h3>💳 Wallet</h3>
-                <p style="font-size:28px">₹0</p>
+            <div class="stat">
+                <h3><i class="fa-solid fa-wallet"></i> Wallet</h3>
+                <p>₹0</p>
             </div>
         </div>
 
         <!-- Products -->
-        <h2>🛍 Products</h2>
-        <div class="products">
+        <h2 style="margin-bottom: 20px; color: #1e293b;"><i class="fa-solid fa-store"></i> Products</h2>
+        <div class="products-grid">
             <?php if ($res && mysqli_num_rows($res) > 0): while($p = mysqli_fetch_assoc($res)): ?>
-                <div class="product">
-                    <img src="/market_ecom/uploads/<?= htmlspecialchars($p['image']) ?>">
+                <div class="product-card">
+                    <img src="/market_ecom/uploads/<?= htmlspecialchars($p['image']) ?>" alt="<?= htmlspecialchars($p['name']) ?>">
                     <h4><?= htmlspecialchars($p['name']) ?></h4>
                     <p>₹<?= htmlspecialchars($p['price']) ?></p>
 
@@ -212,7 +273,7 @@ if ($q && $r = mysqli_fetch_assoc($q)) {
                     </form>
                 </div>
             <?php endwhile; else: ?>
-                <p>No products found.</p>
+                <p style="text-align:center; padding: 30px; color:#64748b;">No products found.</p>
             <?php endif; ?>
         </div>
 

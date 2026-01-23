@@ -22,19 +22,16 @@ if (isset($_POST['login'])) {
 
         if (password_verify($password, $user['password'])) {
 
-            // Role check
             if ($role !== $user['role']) {
                 $_SESSION['error'] = "Wrong role selected.";
                 header("Location: ../../index.php");
                 exit;
             }
 
-            // Set session
             $_SESSION['user_id'] = $user['id'];
             $_SESSION['name']    = $user['name'];
             $_SESSION['role']    = $user['role'];
 
-            // Redirect by role
             if ($user['role'] === 'admin') {
                 header("Location: ../../admin/admin_dashboard.php");
             } elseif ($user['role'] === 'vendor') {
@@ -46,13 +43,12 @@ if (isset($_POST['login'])) {
 
         } else {
             $_SESSION['error'] = "Wrong password.";
-            header("Location: ../../index.php");
-            exit;
         }
 
     } else {
         $_SESSION['error'] = "Email not found.";
-        header("Location: ../../index.php");
-        exit;
     }
-};
+
+    header("Location: ../../index.php");
+    exit;
+}

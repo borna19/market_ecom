@@ -12,19 +12,16 @@ if (isset($_POST['register'])) {
     $password = $_POST['password'];
     $role     = $_POST['role'];
 
-    // Security: never allow direct admin registration
     if ($role === 'admin') {
-        $role = 'customer';
+        $role = 'customer'; // security
     }
 
-    // Check empty
     if (empty($name) || empty($email) || empty($password)) {
         $_SESSION['error'] = "All fields are required.";
         header("Location: ../../index.php");
         exit;
     }
 
-    // Check duplicate email
     $check = $conn->prepare("SELECT id FROM users WHERE email = ?");
     $check->bind_param("s", $email);
     $check->execute();
@@ -36,26 +33,17 @@ if (isset($_POST['register'])) {
         exit;
     }
 
-    // Hash password
     $hashed = password_hash($password, PASSWORD_DEFAULT);
 
-    // Insert
     $stmt = $conn->prepare("INSERT INTO users (name, email, password, role) VALUES (?, ?, ?, ?)");
-    if (!$stmt) {
-        $_SESSION['error'] = "Database error: " . $conn->error;
-        header("Location: ../../index.php");
-        exit;
-    }
-
     $stmt->bind_param("ssss", $name, $email, $hashed, $role);
 
     if ($stmt->execute()) {
-        $_SESSION['success'] = "Registration successful. Login now.";
-        header("Location: ../../index.php");
-        exit;
+        $_SESSION['success'] = "Registration successful. Please login.";
     } else {
-        $_SESSION['error'] = "Registration failed: " . $stmt->error;
-        header("Location: ../../index.php");
-        exit;
+        $_SESSION['error'] = "Registration failed.";
     }
+
+    header("Location: ../../index.php");
+    exit;
 }
