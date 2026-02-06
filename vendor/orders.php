@@ -15,7 +15,7 @@ $vendor_id = (int)$_SESSION['user_id'];
 // Fetch orders for this vendor's products
 $query = "
     SELECT o.id as order_id, o.created_at, u.name as customer_name,
-           p.name as product_name, oi.quantity, oi.price, (oi.quantity * oi.price) as total_price,
+           p.name as product_name, oi.quantity, oi.unit_price, (oi.quantity * oi.unit_price) as total_price,
            o.status
     FROM order_items oi
     JOIN orders o ON oi.order_id = o.id

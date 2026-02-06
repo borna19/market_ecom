@@ -29,15 +29,15 @@ $total_orders = ($oq) ? (mysqli_fetch_assoc($oq)['total'] ?? 0) : 0;
 
 // Revenue
 $rq = mysqli_query($conn, "
-    SELECT SUM(oi.quantity * oi.price) as revenue
+    SELECT SUM(oi.quantity * oi.unit_price) as revenue
     FROM order_items oi
     JOIN products p ON oi.product_id = p.id
     WHERE p.vendor_id = $vendor_id
 ");
 $revenue = ($rq) ? (mysqli_fetch_assoc($rq)['revenue'] ?? 0) : 0;
 
-// Recent Products (Dynamic)
-$recent_products_res = mysqli_query($conn, "SELECT id, name, price, stock FROM products WHERE vendor_id = $vendor_id ORDER BY id DESC LIMIT 5");
+// Recent Products (Dynamic) - REMOVED LIMIT to show all
+$recent_products_res = mysqli_query($conn, "SELECT id, name, price, stock, category FROM products WHERE vendor_id = $vendor_id ORDER BY id DESC");
 
 // --- Chart Demo Data ---
 $sales_data = [
@@ -334,14 +334,15 @@ $category_data = [
         <!-- Recent Products Table -->
         <div class="products-table">
             <div style="display:flex; justify-content:space-between; align-items:center;">
-                <h3>Recent Products</h3>
-                <a href="manage_products.php" class="btn"><i class="fa-solid fa-list-check"></i> Manage All</a>
+                <h3>All Products</h3>
+                <a href="manage_products.php" class="btn"><i class="fa-solid fa-list-check"></i> Manage</a>
             </div>
             <table>
                 <thead>
                     <tr>
                         <th>ID</th>
-                        <th>Name</th>
+                        <th>Product Name</th>
+                        <th>Category</th>
                         <th>Price</th>
                         <th>Stock</th>
                     </tr>
@@ -352,12 +353,13 @@ $category_data = [
                         <tr>
                             <td>#<?= $p['id'] ?></td>
                             <td><?= htmlspecialchars($p['name']) ?></td>
+                            <td><?= htmlspecialchars($p['category']) ?></td>
                             <td>₹<?= htmlspecialchars($p['price']) ?></td>
                             <td><?= htmlspecialchars($p['stock']) ?></td>
                         </tr>
                     <?php endwhile; ?>
                 <?php else: ?>
-                    <tr><td colspan="4" style="text-align:center; padding: 30px;">No products found.</td></tr>
+                    <tr><td colspan="5" style="text-align:center; padding: 30px;">No products found.</td></tr>
                 <?php endif; ?>
                 </tbody>
             </table>

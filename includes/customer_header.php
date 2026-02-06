@@ -1,15 +1,21 @@
 <?php
 if (session_status() === PHP_SESSION_NONE) session_start();
 
-// Calculate cart count if not already set
-if (!isset($cart_count)) {
-    $user_id = $_SESSION['user_id'] ?? 0;
-    $cart_count = 0;
-    if ($user_id) {
-        $cq = mysqli_query($conn, "SELECT SUM(quantity) as cnt FROM cart_items WHERE user_id = $user_id");
-        if ($cq && $r = mysqli_fetch_assoc($cq)) {
-            $cart_count = $r['cnt'] ?? 0;
-        }
+$user_id = $_SESSION['user_id'] ?? 0;
+$cart_count = 0;
+$user_photo = '';
+
+if ($user_id) {
+    // Fetch cart count
+    $cq = mysqli_query($conn, "SELECT SUM(quantity) as cnt FROM cart_items WHERE user_id = $user_id");
+    if ($cq && $r = mysqli_fetch_assoc($cq)) {
+        $cart_count = $r['cnt'] ?? 0;
+    }
+
+    // Fetch profile photo
+    $pq = mysqli_query($conn, "SELECT profile_photo FROM users WHERE id = $user_id");
+    if ($pq && $u = mysqli_fetch_assoc($pq)) {
+        $user_photo = $u['profile_photo'];
     }
 }
 ?>
@@ -88,6 +94,14 @@ if (!isset($cart_count)) {
         .dropdown-item:active {
             background-color: var(--primary-color);
         }
+
+        .nav-profile-img {
+            width: 35px;
+            height: 35px;
+            object-fit: cover;
+            border-radius: 50%;
+            border: 2px solid #e5e7eb;
+        }
     </style>
 </head>
 <body>
@@ -121,8 +135,13 @@ if (!isset($cart_count)) {
                 </li>
 
                 <li class="nav-item dropdown ms-3">
-                    <a class="nav-link dropdown-toggle" href="#" role="button" data-bs-toggle="dropdown">
-                        <i class="fa-solid fa-user-circle fa-lg"></i> <?= htmlspecialchars($_SESSION['name'] ?? 'User') ?>
+                    <a class="nav-link dropdown-toggle d-flex align-items-center gap-2" href="#" role="button" data-bs-toggle="dropdown">
+                        <?php if (!empty($user_photo)): ?>
+                            <img src="/market_ecom/uploads/<?= htmlspecialchars($user_photo) ?>" class="nav-profile-img" alt="Profile">
+                        <?php else: ?>
+                            <i class="fa-solid fa-user-circle fa-2x text-secondary"></i>
+                        <?php endif; ?>
+                        <span><?= htmlspecialchars($_SESSION['name'] ?? 'User') ?></span>
                     </a>
                     <ul class="dropdown-menu dropdown-menu-end border-0 shadow">
                         <li><a class="dropdown-item" href="/market_ecom/customer/profile.php">Profile</a></li>

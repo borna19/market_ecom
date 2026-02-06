@@ -2,206 +2,192 @@
 session_start();
 include __DIR__ . '/../includes/e_db.php';
 
-if (!$conn) {
-    die("Database connection failed");
+// Require customer
+$role = strtolower($_SESSION['role'] ?? '');
+if (!isset($_SESSION['user_id']) || $role !== 'customer') {
+    $_SESSION['message'] = 'Please login as customer.';
+    header('Location: /market_ecom/index.php');
+    exit;
 }
 
-$sql = "SELECT id, name, description, price, unit, image FROM products ORDER BY id DESC";
-$result = mysqli_query($conn, $sql);
-
-if (!$result) {
-    die("Query Error: " . mysqli_error($conn));
+// Fetch categories for filter
+$cats = [];
+$rc = mysqli_query($conn, "SELECT DISTINCT category FROM products ORDER BY category ASC");
+if ($rc) {
+    while ($r = mysqli_fetch_assoc($rc)) $cats[] = $r['category'];
 }
+
+// Search & Filter Logic
+$search = $_GET['search'] ?? '';
+$category = $_GET['category'] ?? '';
+
+$sql = "SELECT * FROM products WHERE 1=1";
+$types = "";
+$params = [];
+
+if ($search) {
+    $sql .= " AND name LIKE ?";
+    $types .= "s";
+    $params[] = "%$search%";
+}
+
+if ($category) {
+    $sql .= " AND category = ?";
+    $types .= "s";
+    $params[] = $category;
+}
+
+$sql .= " ORDER BY id DESC";
+
+$stmt = mysqli_prepare($conn, $sql);
+if (!empty($params)) {
+    mysqli_stmt_bind_param($stmt, $types, ...$params);
+}
+mysqli_stmt_execute($stmt);
+$result = mysqli_stmt_get_result($stmt);
 ?>
+
 <!DOCTYPE html>
-<html lang="en">
+<html>
 <head>
-    <meta charset="UTF-8">
-    <title>Market Shop</title>
-
-    <!-- Bootstrap -->
-    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.2/dist/css/bootstrap.min.css" rel="stylesheet">
-
+    <title>Shop - Farmers Market</title>
+    <link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.0/css/all.min.css" rel="stylesheet">
     <style>
-        /* =========================
-           GLOBAL
-        ========================== */
-        body{
-            background:#f4f6f8; /* shop background */
-            color:#333;
-            margin:0;
+        body {
+            margin: 0;
+            font-family: 'Segoe UI', sans-serif;
+            background: #f8fafc;
         }
 
-        /* =========================
-           MAIN CONTENT
-        ========================== */
-        .main-content{
-            margin-left:240px; /* sidebar width */
-            padding:25px;
-            min-height:100vh;
+        .product-card {
+            background: #fff;
+            border-radius: 16px;
+            padding: 20px;
+            box-shadow: 0 4px 20px rgba(0,0,0,0.03);
+            transition: transform .2s;
+            text-align: center;
+            height: 100%;
+            display: flex;
+            flex-direction: column;
         }
 
-        @media(max-width:768px){
-            .main-content{
-                margin-left:0;
-            }
+        .product-card:hover {
+            transform: translateY(-5px);
+            box-shadow: 0 10px 25px rgba(0,0,0,0.08);
         }
 
-        /* =========================
-           PAGE HEADER
-        ========================== */
-        .page-title{
-            font-weight:600;
-            color:#1b5e20;
+        .product-card img {
+            width: 100%;
+            height: 200px;
+            object-fit: cover;
+            border-radius: 12px;
+            margin-bottom: 15px;
         }
 
-        /* =========================
-           PRODUCT CARD
-        ========================== */
-        .card{
-            background:#ffffff;
-            border:none;
-            border-radius:14px;
-            height:100%;
-            box-shadow:0 4px 12px rgba(0,0,0,0.08);
-            transition:all .2s ease;
+        .product-card h4 {
+            font-size: 1.1rem;
+            margin-bottom: 5px;
+            color: #1e293b;
+            font-weight: 600;
         }
 
-        .card:hover{
-            transform:translateY(-4px);
-            box-shadow:0 8px 20px rgba(0,0,0,0.15);
+        .product-card .category {
+            font-size: 0.9rem;
+            color: #64748b;
+            margin-bottom: 10px;
         }
 
-        .card img{
-            height:180px;
-            object-fit:cover;
-            border-radius:14px 14px 0 0;
-            background:#eee;
+        .product-card .price {
+            font-size: 1.25rem;
+            font-weight: 700;
+            color: #10b981;
+            margin-bottom: 15px;
         }
 
-        .card-body h5{
-            font-size:17px;
-            font-weight:600;
-            color:#2e7d32;
+        .btn {
+            border-radius: 8px;
+            font-weight: 500;
+            padding: 8px 16px;
+            transition: all 0.2s;
         }
 
-        .card-body p{
-            font-size:14px;
-            color:#555;
-            line-height:1.4;
-        }
+        .btn-primary { background: #3b82f6; border: none; color: white; }
+        .btn-primary:hover { background: #2563eb; }
 
-        /* =========================
-           PRICE
-        ========================== */
-        .price{
-            font-size:18px;
-            font-weight:700;
-            color:#1b5e20;
-        }
-
-        .unit{
-            font-size:13px;
-            color:#777;
-        }
-
-        /* =========================
-           BUTTONS
-        ========================== */
-        .btn-cart{
-            background:#2e7d32;
-            border:none;
-            color:#fff;
-        }
-
-        .btn-cart:hover{
-            background:#1b5e20;
-        }
-
-        .btn-buy{
-            background:#ff9800;
-            border:none;
-            color:#fff;
-        }
-
-        .btn-buy:hover{
-            background:#fb8c00;
-        }
-
-        .btn-back{
-            border:1px solid #2e7d32;
-            color:#2e7d32;
-        }
-
-        .btn-back:hover{
-            background:#2e7d32;
-            color:#fff;
+        .search-box {
+            background: white;
+            padding: 20px;
+            border-radius: 12px;
+            box-shadow: 0 2px 10px rgba(0,0,0,0.03);
+            margin-bottom: 30px;
         }
     </style>
 </head>
-
 <body>
 
-<!-- SIDEBAR -->
-<?php include __DIR__ . '/../includes/sidebar.php'; ?>
+<?php include __DIR__ . '/../includes/customer_header.php'; ?>
 
-<!-- MAIN CONTENT -->
-<div class="main-content">
+<div class="container py-5">
 
-    <!-- HEADER -->
     <div class="d-flex justify-content-between align-items-center mb-4">
-        <h2 class="page-title">🛒 Market Shop</h2>
-        <a href="/market_ecom/pages/dashboard.php" class="btn btn-back btn-sm">
-            ← Back to Dashboard
-        </a>
+        <h2 class="fw-bold text-dark"><i class="fa-solid fa-store me-2"></i> Shop</h2>
     </div>
 
-    <!-- PRODUCTS -->
-    <div class="row g-4">
-        <?php if(mysqli_num_rows($result) > 0){ ?>
-            <?php while($row = mysqli_fetch_assoc($result)){ ?>
-                <div class="col-lg-3 col-md-4 col-sm-6">
-                    <div class="card h-100">
+    <!-- Search & Filter -->
+    <div class="search-box">
+        <form method="GET" class="row g-3">
+            <div class="col-md-6">
+                <div class="input-group">
+                    <span class="input-group-text bg-white border-end-0"><i class="fa-solid fa-search text-muted"></i></span>
+                    <input type="text" name="search" class="form-control border-start-0 ps-0" placeholder="Search products..." value="<?= htmlspecialchars($search) ?>">
+                </div>
+            </div>
+            <div class="col-md-4">
+                <select name="category" class="form-select">
+                    <option value="">All Categories</option>
+                    <?php foreach($cats as $c): ?>
+                        <option value="<?= htmlspecialchars($c) ?>" <?= $category == $c ? 'selected' : '' ?>><?= htmlspecialchars($c) ?></option>
+                    <?php endforeach; ?>
+                </select>
+            </div>
+            <div class="col-md-2">
+                <button type="submit" class="btn btn-primary w-100">Filter</button>
+            </div>
+        </form>
+    </div>
 
-                        <img src="../uploads/<?php echo htmlspecialchars($row['image'] ?? 'no-image.png'); ?>" alt="Product Image">
+    <!-- Products Grid -->
+    <div class="row row-cols-1 row-cols-md-3 row-cols-lg-4 g-4">
+        <?php if ($result && mysqli_num_rows($result) > 0): while($p = mysqli_fetch_assoc($result)): ?>
+            <div class="col">
+                <div class="product-card">
+                    <img src="/market_ecom/uploads/<?= htmlspecialchars($p['image']) ?>" alt="<?= htmlspecialchars($p['name']) ?>">
+                    <h4><?= htmlspecialchars($p['name']) ?></h4>
+                    <div class="category"><?= htmlspecialchars($p['category'] ?? 'General') ?></div>
+                    <div class="price">₹<?= htmlspecialchars($p['price']) ?> <span style="font-size:0.8rem; color:#94a3b8; font-weight:400;">/ <?= htmlspecialchars($p['unit'] ?? 'unit') ?></span></div>
 
-                        <div class="card-body d-flex flex-column">
-                            <h5><?php echo htmlspecialchars($row['name']); ?></h5>
-
-                            <?php if(!empty($row['description'])){ ?>
-                                <p>
-                                    <?php echo htmlspecialchars($row['description']); ?>
-                                </p>
-                            <?php } ?>
-
-                            <div class="mb-3">
-                                <span class="price">₹<?php echo $row['price']; ?></span>
-                                <span class="unit">/ <?php echo $row['unit']; ?></span>
-                            </div>
-
-                            <div class="mt-auto">
-                                <a href="cart_action.php?id=<?php echo $row['id']; ?>"
-                                   class="btn btn-cart btn-sm w-100 mb-2">
-                                    Add to Cart
-                                </a>
-
-                                <a href="checkout.php?buy=<?php echo $row['id']; ?>"
-                                   class="btn btn-buy btn-sm w-100">
-                                    Buy Now
-                                </a>
-                            </div>
-                        </div>
-
+                    <div class="mt-auto">
+                        <form method="POST" action="cart_action.php" class="d-grid">
+                            <input type="hidden" name="product_id" value="<?= $p['id'] ?>">
+                            <button name="add" class="btn btn-primary">
+                                <i class="fa-solid fa-cart-plus me-2"></i> Add to Cart
+                            </button>
+                        </form>
                     </div>
                 </div>
-            <?php } ?>
-        <?php } else { ?>
-            <p>No products available</p>
-        <?php } ?>
+            </div>
+        <?php endwhile; else: ?>
+            <div class="col-12 text-center py-5">
+                <i class="fa-solid fa-basket-shopping fa-3x text-muted mb-3"></i>
+                <h4 class="text-muted">No products found</h4>
+                <p class="text-secondary">Try adjusting your search or filter.</p>
+                <a href="shop.php" class="btn btn-outline-secondary mt-2">Clear Filters</a>
+            </div>
+        <?php endif; ?>
     </div>
 
 </div>
-<!-- END MAIN CONTENT -->
 
+<script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/js/bootstrap.bundle.min.js"></script>
 </body>
 </html>

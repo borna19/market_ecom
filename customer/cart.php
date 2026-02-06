@@ -5,295 +5,133 @@ include __DIR__ . '/../includes/e_db.php';
 // Require customer
 $role = strtolower($_SESSION['role'] ?? '');
 if (!isset($_SESSION['user_id']) || $role !== 'customer') {
-    $_SESSION['message'] = 'Please login as customer.';
+    $_SESSION['message'] = 'Please login as a customer.';
     header('Location: /market_ecom/index.php');
     exit;
 }
 $user_id = (int)$_SESSION['user_id'];
 
-// Fetch Cart Items from Database
-$cart_query = "
-    SELECT ci.id as cart_id, ci.quantity, p.id as product_id, p.name, p.price, p.image
-    FROM cart_items ci
-    JOIN products p ON ci.product_id = p.id
-    WHERE ci.user_id = $user_id
-";
-$cart_res = mysqli_query($conn, $cart_query);
+// --- HANDLE ITEM REMOVAL (SELF-SUBMITTING LOGIC) ---
+if (isset($_GET['action']) && $_GET['action'] === 'remove' && isset($_GET['id'])) {
+    $cart_item_id_to_remove = (int)$_GET['id'];
+
+    // Security: Prepare a statement to delete the item, ensuring it belongs to the current user's cart.
+    $delete_stmt = $conn->prepare("
+        DELETE ci FROM cart_items ci
+        JOIN cart c ON ci.cart_id = c.id
+        WHERE ci.id = ? AND c.user_id = ?
+    ");
+
+    if ($delete_stmt) {
+        $delete_stmt->bind_param("ii", $cart_item_id_to_remove, $user_id);
+        if ($delete_stmt->execute()) {
+            // Success message can be added if desired
+        }
+    }
+
+    // Redirect to the same page but without the URL parameters to prevent accidental re-deletes on refresh.
+    header("Location: cart.php");
+    exit;
+}
+// --- END OF REMOVAL LOGIC ---
+
+
+// --- SECURELY FETCH CART ITEMS ---
 $cart_items = [];
 $total = 0;
+
+$cart_query = "
+    SELECT ci.id as cart_item_id, ci.quantity, p.id as product_id, p.name, p.price, p.image
+    FROM cart_items ci
+    JOIN products p ON ci.product_id = p.id
+    JOIN cart c ON ci.cart_id = c.id
+    WHERE c.user_id = ?
+";
+$stmt = $conn->prepare($cart_query);
+$stmt->bind_param("i", $user_id);
+$stmt->execute();
+$cart_res = $stmt->get_result();
+
 if ($cart_res) {
-    while ($row = mysqli_fetch_assoc($cart_res)) {
+    while ($row = $cart_res->fetch_assoc()) {
         $cart_items[] = $row;
         $total += $row['price'] * $row['quantity'];
     }
 }
 ?>
 
-<!DOCTYPE html>
-<html>
-<head>
-    <title>My Cart - Customer</title>
-    <link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.0/css/all.min.css" rel="stylesheet">
-    <style>
-        body {
-            margin: 0;
-            font-family: 'Segoe UI', sans-serif;
-            background: #f8fafc;
-        }
+<?php include __DIR__ . '/../includes/customer_header.php'; ?>
 
-        .layout {
-            display: flex;
-            height: 100vh;
-            overflow: hidden;
-        }
+<div class="container py-5">
 
-        /* Sidebar */
-        .sidebar {
-            width: 260px;
-            background: #1e293b;
-            color: #fff;
-            display: flex;
-            flex-direction: column;
-            box-shadow: 2px 0 10px rgba(0,0,0,0.1);
-            height: 100%;
-        }
+    <h2 class="fw-bold text-dark mb-4"><i class="fa-solid fa-cart-shopping me-2"></i> My Shopping Cart</h2>
 
-        .sidebar-header {
-            padding: 25px 20px;
-            background: #0f172a;
-            text-align: center;
-            border-bottom: 1px solid #334155;
-            flex-shrink: 0;
-        }
-
-        .sidebar-header h3 {
-            margin: 0;
-            font-size: 20px;
-            font-weight: 700;
-            color: #fff;
-            display: flex;
-            align-items: center;
-            justify-content: center;
-            gap: 10px;
-        }
-
-        .sidebar-menu {
-            list-style: none;
-            padding: 0;
-            margin: 0;
-            flex: 1;
-            display: flex;
-            flex-direction: column;
-            overflow-y: auto;
-        }
-
-        .sidebar-menu li {
-            border-bottom: 1px solid #334155;
-            flex-shrink: 0;
-        }
-
-        .sidebar-menu li:last-child {
-            border-bottom: none;
-        }
-
-        .sidebar-menu a {
-            display: flex;
-            align-items: center;
-            padding: 15px 25px;
-            color: #cbd5e1;
-            text-decoration: none;
-            font-size: 15px;
-            transition: all 0.3s;
-            gap: 12px;
-        }
-
-        .sidebar-menu a:hover, .sidebar-menu a.active {
-            background: #3b82f6;
-            color: #fff;
-            padding-left: 30px;
-        }
-
-        .sidebar-menu a i {
-            width: 20px;
-            text-align: center;
-        }
-
-        .logout-link {
-            background: #ef4444;
-            color: white !important;
-            justify-content: center;
-        }
-        .logout-link:hover {
-            background: #dc2626 !important;
-            padding-left: 25px !important;
-        }
-
-        /* Main */
-        .main {
-            flex: 1;
-            padding: 30px;
-            overflow-y: auto;
-            height: 100%;
-        }
-
-        .topbar {
-            background: #fff;
-            padding: 20px 30px;
-            border-radius: 16px;
-            display: flex;
-            justify-content: space-between;
-            align-items: center;
-            box-shadow: 0 4px 20px rgba(0,0,0,0.03);
-            margin-bottom: 30px;
-            flex-shrink: 0;
-        }
-
-        .topbar h2 { margin: 0; font-size: 22px; color: #1e293b; }
-        .topbar span { color: #64748b; font-weight: 500; }
-
-        .content-card {
-            background: #fff;
-            padding: 30px;
-            border-radius: 16px;
-            box-shadow: 0 4px 20px rgba(0,0,0,0.03);
-        }
-
-        table {
-            width: 100%;
-            border-collapse: collapse;
-            margin-top: 10px;
-        }
-
-        th, td {
-            padding: 15px;
-            border-bottom: 1px solid #e2e8f0;
-            text-align: left;
-            color: #334155;
-            vertical-align: middle;
-        }
-
-        th {
-            background: #f8fafc;
-            font-weight: 600;
-            color: #475569;
-        }
-
-        .img-thumbnail {
-            width: 60px;
-            height: 60px;
-            object-fit: cover;
-            border-radius: 8px;
-            border: 1px solid #e2e8f0;
-        }
-
-        .btn {
-            padding: 10px 20px;
-            border-radius: 8px;
-            text-decoration: none;
-            font-size: 14px;
-            display: inline-block;
-            border: none;
-            cursor: pointer;
-            font-weight: 500;
-            transition: background 0.2s;
-        }
-
-        .btn-primary { background: #3b82f6; color: #fff; }
-        .btn-primary:hover { background: #2563eb; }
-
-        .btn-success { background: #10b981; color: #fff; }
-        .btn-success:hover { background: #059669; }
-
-        .btn-danger { background: #ef4444; color: #fff; padding: 6px 12px; }
-        .btn-danger:hover { background: #dc2626; }
-
-        .btn-secondary { background: #64748b; color: #fff; }
-        .btn-secondary:hover { background: #475569; }
-
-        .total-section {
-            display: flex;
-            justify-content: flex-end;
-            align-items: center;
-            margin-top: 20px;
-            padding-top: 20px;
-            border-top: 1px solid #e2e8f0;
-        }
-
-        .total-label { font-size: 18px; font-weight: 600; color: #475569; margin-right: 15px; }
-        .total-amount { font-size: 24px; font-weight: 700; color: #1e293b; }
-
-    </style>
-</head>
-<body>
-
-<div class="layout">
-
-    <!-- Sidebar -->
-    <?php include __DIR__ . '/../includes/customer_sidebar.php'; ?>
-
-    <!-- Main -->
-    <div class="main">
-
-        <div class="topbar">
-            <h2><i class="fa-solid fa-cart-shopping"></i> My Cart</h2>
-            <span><?= date("l, d M Y") ?></span>
+    <?php if (empty($cart_items)): ?>
+        <div class="text-center py-5 card shadow-sm border-0">
+            <i class="fa-solid fa-cart-arrow-down fa-4x text-muted mb-3"></i>
+            <h3 class="text-muted">Your cart is empty</h3>
+            <p class="text-secondary mb-4">Looks like you haven't added anything yet. Start shopping!</p>
+            <a href="customer_dashboard.php" class="btn btn-primary btn-lg mx-auto" style="width: fit-content;">
+                <i class="fa-solid fa-store me-2"></i> Go to Shop
+            </a>
         </div>
-
-        <div class="content-card">
-            <?php if (empty($cart_items)): ?>
-                <div style="text-align:center; padding: 50px;">
-                    <i class="fa-solid fa-cart-arrow-down fa-4x" style="color:#cbd5e1; margin-bottom: 20px;"></i>
-                    <h3 style="color:#64748b;">Your cart is empty</h3>
-                    <p style="color:#94a3b8; margin-bottom: 20px;">Looks like you haven't added anything yet.</p>
-                    <a href="customer_dashboard.php" class="btn btn-primary">Start Shopping</a>
-                </div>
-            <?php else: ?>
-                <table>
+    <?php else: ?>
+        <div class="card shadow-sm border-0 p-4">
+            <div class="table-responsive">
+                <table class="table table-hover align-middle">
                     <thead>
-                        <tr>
-                            <th>Product</th>
-                            <th>Price</th>
-                            <th>Quantity</th>
-                            <th>Subtotal</th>
-                            <th>Action</th>
+                        <tr class="table-light">
+                            <th scope="col">Product</th>
+                            <th scope="col">Price</th>
+                            <th scope="col">Quantity</th>
+                            <th scope="col">Subtotal</th>
+                            <th scope="col">Action</th>
                         </tr>
                     </thead>
                     <tbody>
                         <?php foreach ($cart_items as $item): ?>
                             <tr>
                                 <td>
-                                    <div style="display:flex; align-items:center; gap:15px;">
-                                        <img src="/market_ecom/uploads/<?= htmlspecialchars($item['image']) ?>" class="img-thumbnail">
-                                        <span style="font-weight:500;"><?= htmlspecialchars($item['name']) ?></span>
+                                    <div class="d-flex align-items-center">
+                                        <img src="/market_ecom/uploads/<?= htmlspecialchars($item['image']) ?>" class="img-thumbnail me-3" alt="<?= htmlspecialchars($item['name']) ?>" style="width: 70px; height: 70px;">
+                                        <span class="fw-bold"><?= htmlspecialchars($item['name']) ?></span>
                                     </div>
                                 </td>
                                 <td>₹<?= number_format($item['price'], 2) ?></td>
-                                <td><?= $item['quantity'] ?></td>
+                                <td>
+                                    <input type="number" value="<?= $item['quantity'] ?>" min="1" class="form-control form-control-sm" style="width: 70px;" disabled>
+                                </td>
                                 <td>₹<?= number_format($item['price'] * $item['quantity'], 2) ?></td>
                                 <td>
-                                    <a href="remove_cart.php?id=<?= $item['cart_id'] ?>" class="btn btn-danger" onclick="return confirm('Remove this item?')">
-                                        <i class="fa-solid fa-trash"></i>
+                                    <!-- UPDATED LINK -->
+                                    <a href="cart.php?action=remove&id=<?= $item['cart_item_id'] ?>" class="btn btn-danger btn-sm" onclick="return confirm('Remove this item from cart?')">
+                                        <i class="fa-solid fa-trash"></i> Remove
                                     </a>
                                 </td>
                             </tr>
                         <?php endforeach; ?>
                     </tbody>
                 </table>
+            </div>
 
-                <div class="total-section">
-                    <span class="total-label">Total Amount:</span>
-                    <span class="total-amount">₹<?= number_format($total, 2) ?></span>
-                </div>
+            <div class="d-flex justify-content-end align-items-center mt-4 pt-3 border-top">
+                <h4 class="fw-bold me-3 text-dark">Total Amount:</h4>
+                <h3 class="fw-bold text-success">₹<?= number_format($total, 2) ?></h3>
+            </div>
 
-                <div style="display:flex; justify-content:flex-end; gap:15px; margin-top:25px;">
-                    <a href="customer_dashboard.php" class="btn btn-secondary">Continue Shopping</a>
-                    <a href="checkout.php" class="btn btn-success">Proceed to Checkout <i class="fa-solid fa-arrow-right"></i></a>
-                </div>
-            <?php endif; ?>
+            <div class="d-flex justify-content-end gap-3 mt-4">
+                <a href="customer_dashboard.php" class="btn btn-outline-secondary btn-lg">
+                    <i class="fa-solid fa-arrow-left me-2"></i> Continue Shopping
+                </a>
+                <a href="checkout.php" class="btn btn-primary btn-lg">
+                    Proceed to Checkout <i class="fa-solid fa-arrow-right ms-2"></i>
+                </a>
+            </div>
         </div>
+    <?php endif; ?>
 
-    </div>
 </div>
 
+<script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/js/bootstrap.bundle.min.js"></script>
 </body>
 </html>
