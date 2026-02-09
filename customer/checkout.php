@@ -102,6 +102,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['place_order'])) {
 <head>
     <title>Checkout - Customer</title>
     <link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.0/css/all.min.css" rel="stylesheet">
+    <script src="https://checkout.razorpay.com/v1/checkout.js"></script>
     <style>
         body {
             margin: 0;
@@ -138,7 +139,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['place_order'])) {
         <div class="alert alert-danger"><i class="fa-solid fa-triangle-exclamation me-2"></i> <?= $error ?></div>
     <?php endif; ?>
 
-    <form method="POST">
+    <form method="POST" id="checkoutForm">
         <div class="row g-4">
             <!-- Left Column: Address & Delivery -->
             <div class="col-lg-8">
@@ -233,8 +234,8 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['place_order'])) {
                         </ul>
 
                         <div class="d-grid">
-                            <button type="submit" name="place_order" class="btn btn-primary btn-lg">
-                                Place Order <i class="fa-solid fa-check-circle ms-2"></i>
+                            <button type="button" id="payButton" class="btn btn-primary btn-lg">
+                                Pay Now <i class="fa-solid fa-credit-card ms-2"></i>
                             </button>
                         </div>
                         <div class="text-center mt-3">
@@ -244,9 +245,49 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['place_order'])) {
                 </div>
             </div>
         </div>
+        <input type="hidden" name="place_order" value="1">
+        <input type="hidden" name="razorpay_payment_id" id="razorpay_payment_id">
     </form>
 </div>
 
 <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/js/bootstrap.bundle.min.js"></script>
+<script>
+    document.getElementById('payButton').onclick = function(e){
+        e.preventDefault();
+
+        // Basic validation
+        var addressSelected = document.querySelector('input[name="address_id"]:checked');
+        if(!addressSelected) {
+            alert("Please select a delivery address.");
+            return;
+        }
+
+        var options = {
+            "key": "rzp_test_Rt2rbLMCwihrZf", // Enter the Key ID generated from the Dashboard
+            "amount": "<?php echo $total * 100; ?>", // Amount is in currency subunits. Default currency is INR.
+            "currency": "INR",
+            "name": "Farmers Market",
+            "description": "Order Payment",
+            "image": "https://example.com/your_logo",
+            "handler": function (response){
+                document.getElementById('razorpay_payment_id').value = response.razorpay_payment_id;
+                document.getElementById('checkoutForm').submit();
+            },
+            "prefill": {
+                "name": "<?php echo $_SESSION['name'] ?? ''; ?>",
+                "email": "<?php echo $_SESSION['email'] ?? ''; ?>",
+                "contact": ""
+            },
+            "theme": {
+                "color": "#22c55e"
+            }
+        };
+        var rzp1 = new Razorpay(options);
+        rzp1.on('payment.failed', function (response){
+                alert("Payment Failed: " + response.error.description);
+        });
+        rzp1.open();
+    }
+</script>
 </body>
 </html>
