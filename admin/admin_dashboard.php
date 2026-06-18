@@ -18,7 +18,7 @@ $total_products  = mysqli_fetch_assoc(mysqli_query($conn, "SELECT COUNT(*) as c 
 $total_orders    = mysqli_fetch_assoc(mysqli_query($conn, "SELECT COUNT(*) as c FROM orders"))['c'] ?? 0;
 
 // Revenue
-$rq = mysqli_query($conn, "SELECT SUM(quantity * price) as total FROM order_items");
+$rq = mysqli_query($conn, "SELECT SUM(quantity * unit_price) as total FROM order_items"); // FIXED: Changed 'price' to 'unit_price'
 $revenue = ($rq) ? (mysqli_fetch_assoc($rq)['total'] ?? 0) : 0;
 
 // Latest users

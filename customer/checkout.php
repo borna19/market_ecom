@@ -1,6 +1,10 @@
 <?php
 session_start();
 include __DIR__ . '/../includes/e_db.php';
+require __DIR__ . '/../vendor/autoload.php'; // Include Composer's autoloader
+
+use PHPMailer\PHPMailer\PHPMailer;
+use PHPMailer\PHPMailer\Exception;
 
 // Require customer
 $role = strtolower($_SESSION['role'] ?? '');
@@ -86,6 +90,41 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['place_order'])) {
             $clear_stmt = $conn->prepare("DELETE FROM cart_items WHERE cart_id = ?");
             $clear_stmt->bind_param("i", $cart_id);
             $clear_stmt->execute();
+
+            // --- Send Confirmation Email ---
+            $mail = new PHPMailer(true);
+            try {
+                //Server settings for Mailpit
+                $mail->isSMTP();
+                $mail->Host = 'localhost';
+                $mail->SMTPAuth = false;
+                $mail->Port = 1025;
+
+                //Recipients
+                $mail->setFrom('barnalinhowmik03@gmail.com', 'Market E-commerce');
+                $mail->addAddress($_SESSION['email'], $_SESSION['name']);
+
+                // Content
+                $mail->isHTML(true);
+                $mail->Subject = "Your Order #$order_id has been placed!";
+                $email_body = "<h1>Thank you for your order!</h1>";
+                $email_body .= "<p>Your order with ID #$order_id has been successfully placed.</p>";
+                $email_body .= "<h2>Order Summary</h2>";
+                $email_body .= "<ul>";
+                foreach ($cart_items as $item) {
+                    $email_body .= "<li>" . htmlspecialchars($item['name']) . " (Qty: " . $item['quantity'] . ") - ₹" . number_format($item['price'] * $item['quantity'], 2) . "</li>";
+                }
+                $email_body .= "</ul>";
+                $email_body .= "<p><strong>Total: ₹" . number_format($total, 2) . "</strong></p>";
+                $email_body .= "<p><strong>Shipping Address:</strong><br>" . htmlspecialchars($shipping_address) . "</p>";
+                $mail->Body = $email_body;
+
+                $mail->send();
+            } catch (Exception $e) {
+                // Log the error, don't show to user
+                die("Message could not be sent. Mailer Error: {$mail->ErrorInfo}");
+            }
+
 
             $_SESSION['success'] = "Order placed successfully! Order ID: #$order_id";
             header("Location: orders.php");
